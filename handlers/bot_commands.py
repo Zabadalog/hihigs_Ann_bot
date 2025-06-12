@@ -2,6 +2,12 @@ from aiogram import types
 from aiogram.dispatcher import Dispatcher
 import yadisk
 
+from .keyboard import (
+    get_main_menu_keyboard,
+    get_tracking_confirmation_keyboard,
+    get_register_keyboard,
+)
+
 from db.engine import SessionLocal
 from db.models import User
 
@@ -14,9 +20,15 @@ async def start_command(message: types.Message):
             user = User(telegram_id=message.from_user.id)
             db.add(user)
             db.commit()
-            await message.answer("Вы успешно зарегистрированы!")
+            await message.answer(
+                "Вы успешно зарегистрированы!",
+                reply_markup=get_main_menu_keyboard(),
+            )
         else:
-            await message.answer("Вы уже зарегистрированы.")
+            await message.answer(
+                "Вы уже зарегистрированы.",
+                reply_markup=get_main_menu_keyboard(),
+            )
     finally:
         db.close()
 
@@ -47,7 +59,7 @@ async def register_command(message: types.Message):
         "После получения токена введите:\n"
         "/token <ВАШ_ТОКЕН>"
     )
-    await message.answer(text)
+    await message.answer(text, reply_markup=get_register_keyboard())
 
 # — /token
 async def token_command(message: types.Message):
@@ -114,7 +126,35 @@ async def add_command(message: types.Message):
         if not user or not user.yadisk_token:
             return await message.answer("Сначала зарегистрируйтесь и сохраните токен.")
         # здесь добавить в БД TrackedFolder и оповестить подписчиков
-        await message.answer(f"Папка `{folder}` теперь отслеживается.", parse_mode="Markdown")
+        await message.answer(
+            f"Папка `{folder}` теперь отслеживается.",
+            parse_mode="Markdown",
+            reply_markup=get_tracking_confirmation_keyboard(),
+        )
+    finally:
+        db.close()
+
+# --- /diskinfo
+async def diskinfo_command(message: types.Message):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(telegram_id=message.from_user.id).first()
+        if not user:
+            return await message.answer("Сначала зарегистрируйтесь командой /start.")
+        if not user.yadisk_token:
+            return await message.answer("Сначала сохраните токен командой /token.")
+
+        try:
+            y = yadisk.YaDisk(token=user.yadisk_token)
+            info = y.get_disk_info()
+            used = info.get("used_space") or info.get("used")
+            total = info.get("total_space") or info.get("total")
+            if used is not None and total is not None:
+                await message.answer(f"Использовано {used} из {total} байт.")
+            else:
+                await message.answer("Информация о диске получена.")
+        except Exception:
+            await message.answer("Не удалось получить информацию о диске.")
     finally:
         db.close()
 
@@ -125,4 +165,5 @@ def register_handlers(dp: Dispatcher):
     dp.register_message_handler(register_command, commands=["register"])
     dp.register_message_handler(token_command, commands=["token"])
     dp.register_message_handler(add_command, commands=["add"])
+    dp.register_message_handler(diskinfo_command, commands=["diskinfo"])
     dp.register_message_handler(help_command, commands=["help"])

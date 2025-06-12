@@ -6,6 +6,16 @@ def get_tracking_confirmation_keyboard():
     )
     return keyboard
 
+def get_register_keyboard():
+    """Keyboard with link to obtain Yandex.Disk OAuth token."""
+    keyboard = InlineKeyboardMarkup().add(
+        InlineKeyboardButton(
+            "Получить токен",
+            url="https://oauth.yandex.ru/client/new",
+        )
+    )
+    return keyboard
+
 def get_main_menu_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=2)
     keyboard.add(
