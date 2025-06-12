@@ -118,6 +118,30 @@ async def add_command(message: types.Message):
     finally:
         db.close()
 
+# --- /diskinfo
+async def diskinfo_command(message: types.Message):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(telegram_id=message.from_user.id).first()
+        if not user:
+            return await message.answer("Сначала зарегистрируйтесь командой /start.")
+        if not user.yadisk_token:
+            return await message.answer("Сначала сохраните токен командой /token.")
+
+        try:
+            y = yadisk.YaDisk(token=user.yadisk_token)
+            info = y.get_disk_info()
+            used = info.get("used_space") or info.get("used")
+            total = info.get("total_space") or info.get("total")
+            if used is not None and total is not None:
+                await message.answer(f"Использовано {used} из {total} байт.")
+            else:
+                await message.answer("Информация о диске получена.")
+        except Exception:
+            await message.answer("Не удалось получить информацию о диске.")
+    finally:
+        db.close()
+
 # точка регистрации всех команд
 def register_handlers(dp: Dispatcher):
     dp.register_message_handler(start_command, commands=["start"])
@@ -125,4 +149,5 @@ def register_handlers(dp: Dispatcher):
     dp.register_message_handler(register_command, commands=["register"])
     dp.register_message_handler(token_command, commands=["token"])
     dp.register_message_handler(add_command, commands=["add"])
+    dp.register_message_handler(diskinfo_command, commands=["diskinfo"])
     dp.register_message_handler(help_command, commands=["help"])
