@@ -2,6 +2,12 @@ from aiogram import types
 from aiogram.dispatcher import Dispatcher
 import yadisk
 
+from .keyboard import (
+    get_main_menu_keyboard,
+    get_tracking_confirmation_keyboard,
+    get_register_keyboard,
+)
+
 from db.engine import SessionLocal
 from db.models import User
 
@@ -14,9 +20,15 @@ async def start_command(message: types.Message):
             user = User(telegram_id=message.from_user.id)
             db.add(user)
             db.commit()
-            await message.answer("Вы успешно зарегистрированы!")
+            await message.answer(
+                "Вы успешно зарегистрированы!",
+                reply_markup=get_main_menu_keyboard(),
+            )
         else:
-            await message.answer("Вы уже зарегистрированы.")
+            await message.answer(
+                "Вы уже зарегистрированы.",
+                reply_markup=get_main_menu_keyboard(),
+            )
     finally:
         db.close()
 
@@ -47,7 +59,7 @@ async def register_command(message: types.Message):
         "После получения токена введите:\n"
         "/token <ВАШ_ТОКЕН>"
     )
-    await message.answer(text)
+    await message.answer(text, reply_markup=get_register_keyboard())
 
 # — /token
 async def token_command(message: types.Message):
@@ -114,7 +126,11 @@ async def add_command(message: types.Message):
         if not user or not user.yadisk_token:
             return await message.answer("Сначала зарегистрируйтесь и сохраните токен.")
         # здесь добавить в БД TrackedFolder и оповестить подписчиков
-        await message.answer(f"Папка `{folder}` теперь отслеживается.", parse_mode="Markdown")
+        await message.answer(
+            f"Папка `{folder}` теперь отслеживается.",
+            parse_mode="Markdown",
+            reply_markup=get_tracking_confirmation_keyboard(),
+        )
     finally:
         db.close()
 
