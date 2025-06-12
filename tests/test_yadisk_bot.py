@@ -2,7 +2,12 @@ import pytest
 from aiogram.types import Message, User as AiogramUser
 from db.models import User, TrackedFolder, Base
 from db.engine import engine, SessionLocal
-from handlers.bot_commands import start_command, status_command, token_command
+from handlers.bot_commands import (
+    start_command,
+    status_command,
+    token_command,
+    diskinfo_command,
+)
 
 @pytest.fixture(scope="function")
 def db():
@@ -52,3 +57,30 @@ def test_token_invalid_token(db, fake_message):
     fake_message.text = "/token fake_token"
     asyncio.run(token_command(fake_message))
     assert "недействительный токен" in fake_message.responses[-1].lower()
+
+
+def test_diskinfo_uses_correct_user_token(db, fake_message, monkeypatch):
+    """Ensure diskinfo uses the token of requesting user."""
+    import asyncio
+
+    tokens = []
+
+    class FakeYaDisk:
+        def __init__(self, token=None):
+            tokens.append(token)
+
+        def check_token(self):
+            return True
+
+        def get_disk_info(self):
+            return {"used_space": 0, "total_space": 0}
+
+    monkeypatch.setattr("handlers.bot_commands.yadisk.YaDisk", FakeYaDisk)
+
+    db.add(User(telegram_id=123456, yadisk_token="AAA"))
+    db.commit()
+
+    fake_message.text = "/diskinfo"
+    asyncio.run(diskinfo_command(fake_message))
+
+    assert tokens == ["AAA"]
